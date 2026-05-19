@@ -4,11 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/scheduler.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/app.js",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "jest": "^30.4.2"
+  }
 }
