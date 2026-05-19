@@ -4,13 +4,13 @@ import { scheduleTask } from "./core/scheduler.js";
 
 const appLogger = createLogger("app");
 
-appLogger("app.js started");
+appLogger.info("app.js started");
 
 scheduleTask(
   "running-task",
   config.settings.schedulerInterval,
-  () => {
-    appLogger("running");
+  ({ requestId }) => {
+    appLogger.info("running", { requestId });
   },
   { logger: createLogger("scheduler") }
 );

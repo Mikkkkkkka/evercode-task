@@ -1,22 +1,31 @@
 import createLogger from "../logger/index.js";
+import SchedulerError from "../errors/SchedulerError.js";
+import ValidationError from "../errors/ValidationError.js";
+import createRequestId from "../utils/requestId.js";
 
 const defaultLogger = createLogger("scheduler");
 
 function validateName(name) {
   if (typeof name !== "string" || name.trim().length === 0) {
-    throw new TypeError("name must be a non-empty string");
+    throw new ValidationError("name must be a non-empty string", {
+      details: { field: "name", value: name },
+    });
   }
 }
 
 function validateInterval(interval) {
   if (!Number.isInteger(interval) || interval <= 0) {
-    throw new TypeError("interval must be a positive integer");
+    throw new ValidationError("interval must be a positive integer", {
+      details: { field: "interval", value: interval },
+    });
   }
 }
 
 function validateTask(task) {
   if (typeof task !== "function") {
-    throw new TypeError("task must be a function");
+    throw new ValidationError("task must be a function", {
+      details: { field: "task", valueType: typeof task },
+    });
   }
 }
 
@@ -27,18 +36,26 @@ export function scheduleTask(name, interval, task, options = {}) {
 
   const logger = options.logger ?? defaultLogger;
 
-  logger(`Task "${name}" scheduled with interval ${interval}ms`);
+  logger.info(`Task "${name}" scheduled with interval ${interval}ms`);
 
   return setInterval(() => {
-    logger(`Task "${name}" started`);
+    const requestId = createRequestId();
+    const taskLogger = logger.child({ requestId });
+
+    taskLogger.info(`Task "${name}" started`);
 
     try {
-      task();
-      logger(`Task "${name}" finished`);
+      task({ requestId, logger: taskLogger });
+      taskLogger.info(`Task "${name}" finished`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const schedulerError = new SchedulerError(`Task "${name}" failed`, {
+        details: { taskName: name, requestId },
+        cause: error instanceof Error ? error : undefined,
+      });
 
-      logger(`Task "${name}" failed: ${message}`);
+      taskLogger.error(schedulerError.message, {
+        error: schedulerError,
+      });
     }
   }, interval);
 }
