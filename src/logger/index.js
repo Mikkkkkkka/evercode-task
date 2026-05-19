@@ -1,4 +1,4 @@
-import config from "./config.js";
+import config from "../config/index.js";
 
 function formatDate(date) {
   const day = String(date.getDate()).padStart(2, "0");
