@@ -1,21 +1,77 @@
 import config from "../config/index.js";
 
-function formatDate(date) {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
+const LOG_LEVELS = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+};
 
-  return `${day}.${month}.${year}-${hours}:${minutes}:${seconds}`;
+function shouldLog(level, minLevel) {
+  return LOG_LEVELS[level] >= LOG_LEVELS[minLevel];
 }
 
-function createLogger(scope = config.appName) {
-  return function log(message) {
-    const timestamp = formatDate(new Date());
+function formatLogEntry({ timestamp, level, scope, requestId, message }) {
+  const context = requestId ? ` [requestId=${requestId}]` : "";
 
-    console.log(`[${scope}] [${timestamp}] -- ${message}`);
+  return `[${timestamp}] [${level.toUpperCase()}] [${scope}]${context} ${message}`;
+}
+
+function writeLog(level, entry, error) {
+  if (level === "error") {
+    console.error(entry);
+
+    if (error?.stack) {
+      console.error(error.stack);
+    }
+
+    return;
+  }
+
+  if (level === "warn") {
+    console.warn(entry);
+    return;
+  }
+
+  console.log(entry);
+}
+
+function createLogger(scope = config.appName, baseContext = {}) {
+  const minLevel = config.logger.level ?? "info";
+
+  function log(level, message, context = {}) {
+    if (!shouldLog(level, minLevel)) {
+      return;
+    }
+
+    const mergedContext = { ...baseContext, ...context };
+    const entry = formatLogEntry({
+      timestamp: new Date().toISOString(),
+      level,
+      scope,
+      requestId: mergedContext.requestId,
+      message,
+    });
+
+    writeLog(level, entry, mergedContext.error);
+  }
+
+  return {
+    debug(message, context) {
+      log("debug", message, context);
+    },
+    info(message, context) {
+      log("info", message, context);
+    },
+    warn(message, context) {
+      log("warn", message, context);
+    },
+    error(message, context) {
+      log("error", message, context);
+    },
+    child(context = {}) {
+      return createLogger(scope, { ...baseContext, ...context });
+    },
   };
 }
 
